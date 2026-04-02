@@ -4,6 +4,14 @@ import time
 import socket
 import os
 
+# Create a high-precision epoch clock to eliminate 15.6ms Windows jitter
+_INITIAL_TIME = time.time()
+_INITIAL_PERF = time.perf_counter()
+
+def get_precise_time():
+    """Returns absolute epoch time with sub-millisecond precision."""
+    return _INITIAL_TIME + (time.perf_counter() - _INITIAL_PERF)
+
 # Initialize Flask and SocketIO
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'audio-sync-secret-key'
@@ -42,7 +50,7 @@ def list_files():
     """
     API endpoint to list audio files in the static folder.
     """
-    static_folder = os.path.join(app.root_path, 'static')
+    static_folder = os.path.join(app.root_path, 'static/music')
     audio_extensions = ('.mp3', '.wav', '.ogg', '.aac', '.m4a')
     
     files = []
@@ -63,7 +71,7 @@ def handle_time_sync(data):
     2. The exact current server_time.
     """
     client_time = data.get('client_time')
-    server_time = time.time()  # Current server time in seconds since epoch
+    server_time = get_precise_time()  # Sub-ms accurate server time
     
     emit('sync_pong', {
         'client_time': client_time,
@@ -86,24 +94,29 @@ def handle_host_command(data):
         }, broadcast=True)
         return
 
-    # If the action is 'play', we give the network a 0.5-second buffer 
+    # IF the action is 'play' or 'seek', we give the network a 0.5-second buffer 
     # to execute. (Clients pre-load when a track is selected).
     # If it's pause/stop, we execute it almost immediately (0.1s).
-    if action == 'play':
-        delay_seconds = 0.5
+    if action in ['play', 'seek']:
+        delay_seconds = 2
     else:
-        delay_seconds = 0.1
+        delay_seconds = 0.5
         
-    target_time = time.time() + delay_seconds
+    target_time = get_precise_time() + delay_seconds
     
     print(f"[+] Broadcasting '{action}' command to execute at server time: {target_time}")
     
-    # Broadcast to ALL connected clients (including the laptop itself)
-    emit('execute_command', {
+    payload = {
         'action': action,
         'target_time': target_time,
         'filename': data.get('filename')  # Pass filename to clients if provided
-    }, broadcast=True)
+    }
+    
+    if action == 'seek':
+        payload['seek_time'] = data.get('seek_time', 0)
+        
+    # Broadcast to ALL connected clients (including the laptop itself)
+    emit('execute_command', payload, broadcast=True)
 
 if __name__ == '__main__':
     # Start the server on 0.0.0.0 so devices on the same Wi-Fi can connect
