@@ -10,15 +10,15 @@ This project allows you to broadcast synchronized audio to multiple devices (lik
 2.  **Start Everything**: 
     Double-click `start_all.bat`. This will open two windows:
     - **Audio Server**: The local Flask application.
-    - **Serveo Broadcast**: The internet tunnel that makes your server accessible from anywhere.
+    - **Serveo Broadcast**: The internet tunnel that makes your server accessible from anywhere. Now uses ngrok.
 
 2.  **Stop Everything**:
-    Double-click `stop_all.bat`. This will find and kill the Flask server and the Serveo tunnel automatically.
+    Double-click `stop_all.bat`. This will find and kill the Flask server and the ngrok tunnel automatically.
 
 3.  **Access the App**:
     - **Locally**: `http://localhost:5000`
     - **Internally (WiFi)**: See the IP address printed in the "Audio Server" window.
-    - **Externally (Internet)**: Look at the "Serveo Broadcast" window for a link like `https://xxxx.serveo.net`.
+    - **Externally (Internet)**: Look at the "ngrok" window for the public URL (e.g., `https://xxxx.ngrok-free.app`).
 
 ## Troubleshooting
 

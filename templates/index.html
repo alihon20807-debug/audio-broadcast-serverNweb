@@ -12,15 +12,17 @@
 
 <body>
     <div class="glass-container">
-        <h1>Audio Broadcast</h1>
-        <p class="subtitle">kysnigga</p>
+        <header>
+            <h1>Audio Broadcast</h1>
+            <p class="subtitle">Real-time Synchronized Streaming</p>
+        </header>
 
-        <div class="ip-card" id="file-selector-card">
+        <section class="ip-card" id="file-selector-card">
             <span class="ip-label">Select Audio Track</span>
             <select id="file-select" class="file-dropdown">
                 <option value="" disabled selected>Loading tracks...</option>
             </select>
-        </div>
+        </section>
 
         <div id="join-section">
             <button id="btn-join">
@@ -50,21 +52,21 @@
             </button>
         </div>
 
-        <div class="qr-container" id="qr-section">
+        <section class="qr-container" id="qr-section">
             <span class="ip-label">Scan to Connect</span>
             <img id="qr-code" src="" alt="QR Code">
-        </div>
+        </section>
 
         <div class="status-grid">
             <div class="status-tile">
-                <span class="tile-label">Status</span>
+                <span class="tile-label">System Status</span>
                 <div class="tile-value">
                     <span id="stat-conn-ind" class="indicator"></span>
                     <span id="stat-conn-text">Offline</span>
                 </div>
             </div>
             <div class="status-tile">
-                <span class="tile-label">Audio</span>
+                <span class="tile-label">Now Playing</span>
                 <span class="tile-value" id="stat-audio">Idle</span>
             </div>
             <div class="status-tile">
@@ -72,12 +74,50 @@
                 <span class="tile-value" id="stat-rtt">-- ms</span>
             </div>
             <div class="status-tile">
-                <span class="tile-label">Sync Offset</span>
-                <span class="tile-value" id="stat-offset">-- ms</span>
+                <span class="tile-label">Sync Precision</span>
+                <span class="tile-value" id="stat-drift">Ready</span>
             </div>
             <div class="status-tile">
-                <span class="tile-label">Drift Correct</span>
-                <span class="tile-value" id="stat-drift">Ready</span>
+                <span class="tile-label">Server Time</span>
+                <span class="tile-value" id="stat-server-time">--.---</span>
+            </div>
+            <div class="status-tile" id="open-analytics" style="cursor: pointer; background: rgba(100, 100, 255, 0.1);">
+                <span class="tile-label">Performance Report</span>
+                <span class="tile-value" style="color: var(--accent);">View Analytics 📊</span>
+            </div>
+            <div class="status-tile">
+                <span class="tile-label">Connected Users</span>
+                <span class="tile-value" id="stat-users">1</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Overlay -->
+    <div id="analytics-overlay" class="overlay">
+        <div class="overlay-content">
+            <header class="overlay-header">
+                <h2>System Performance Report</h2>
+                <button id="close-analytics" class="btn-close">&times;</button>
+            </header>
+            <div class="stats-summary" id="stats-summary">
+                <div class="mini-tile">Avg Lag: <span id="avg-lag">--</span>ms</div>
+                <div class="mini-tile">Jitter Max: <span id="max-jitter">--</span>ms</div>
+            </div >
+            <div class="report-table-container">
+                <table id="report-table">
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Target</th>
+                            <th>Actual</th>
+                            <th>Lag (ms)</th>
+                            <th>Audio Pos</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-body">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
