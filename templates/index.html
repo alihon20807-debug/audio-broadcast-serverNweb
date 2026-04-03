@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Broad | Synchronized Streaming</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="glass-container">
+        <header>
+            <h1>Audio Broadcast</h1>
+            <!-- <p class="subtitle">Real-time Synchronized Streaming</p> -->
+             <p class="subtitle">Kys Nigga</p>
+        </header>
+
+        <section class="ip-card" id="file-selector-card">
+            <span class="ip-label">Select Audio Track</span>
+            <select id="file-select" class="file-dropdown">
+                <option value="" disabled selected>Loading tracks...</option>
+            </select>
+        </section>
+
+        <div id="join-section">
+            <button id="btn-join">
+                <span id="btn-text">🎧 Initialize Engine</span>
+                <div class="spinner" id="btn-spinner"></div>
+            </button>
+        </div>
+
+        <div id="controls-section" class="controls">
+            <div class="slider-container">
+                <span id="time-current">0:00</span>
+                <input type="range" id="playback-slider" min="0" max="100" value="0" step="0.1">
+                <span id="time-total">0:00</span>
+            </div>
+
+            <button id="btn-play">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                </svg>
+                Broadcast Music
+            </button>
+            <button id="btn-stop">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 6h12v12H6z" />
+                </svg>
+                Stop All
+            </button>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-tile">
+                <span class="tile-label">System Status</span>
+                <div class="tile-value">
+                    <span id="stat-conn-ind" class="indicator"></span>
+                    <span id="stat-conn-text">Offline</span>
+                </div>
+            </div>
+            <div class="status-tile">
+                <span class="tile-label">Now Playing</span>
+                <span class="tile-value" id="stat-audio">Idle</span>
+            </div>
+            <div class="status-tile">
+                <span class="tile-label">Connected Users</span>
+                <span class="tile-value" id="stat-users">1</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+
+</html>
