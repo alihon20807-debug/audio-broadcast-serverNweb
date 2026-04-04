@@ -4,18 +4,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Broad | Synchronized Streaming</title>
+    <meta name="description" content="Audio Broadcast: Real-time Synchronized Streaming. Listen together, anywhere.">
+    <title>Audio Broadcast | Synchronized Streaming</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
 </head>
 
 <body>
     <div class="glass-container">
         <header>
             <h1>Audio Broadcast</h1>
-            <!-- <p class="subtitle">Real-time Synchronized Streaming</p> -->
-             <p class="subtitle">Kys Nigga</p>
+            <p class="subtitle">Real-time Synchronized Streaming</p>
         </header>
 
         <section class="ip-card" id="file-selector-card">
@@ -73,6 +74,8 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/audio_load.js') }}"></script>
+
 </body>
 
 </html>

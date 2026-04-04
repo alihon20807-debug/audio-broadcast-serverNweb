@@ -1,3 +1,4 @@
+from flask import send_from_directory
 import time
 import socket
 import os
@@ -48,6 +49,12 @@ def get_local_ip():
 LOCAL_IP = get_local_ip()
 
 # --- HTTP ROUTES ---
+
+
+# favicon
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(app.static_folder, "favicon.ico")
 
 
 @app.route("/")
