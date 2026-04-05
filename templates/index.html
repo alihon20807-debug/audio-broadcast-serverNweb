@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precision Sync Player</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <!-- Timesync.js for high precision clock synchronization -->
+    <script src="https://unpkg.com/timesync@1.0.11/dist/timesync.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glow { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-6 font-sans">
+
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+        
+        <header class="mb-8">
+            <h1 class="text-3xl font-black tracking-tight text-white mb-1">SYNC<span class="text-indigo-500">AMP</span></h1>
+            <p id="status" class="text-slate-500 text-sm font-medium">Initializing hardware...</p>
+        </header>
+
+        <div class="flex flex-col gap-6">
+            <div class="flex items-center justify-between bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
+                <div>
+                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Sync Precision</p>
+                    <p id="offsetDisplay" class="text-xl font-mono text-indigo-400">---</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Latency</p>
+                    <p id="latencyDisplay" class="text-xl font-mono text-emerald-400">---</p>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <button onclick="initAndPlay()" id="mainBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-bold text-lg transition-all active:scale-[0.98] glow">
+                    Start System
+                </button>
+                <button onclick="socket.emit('request_stop')" class="w-full bg-slate-800 hover:bg-slate-700 py-3 rounded-2xl font-semibold text-slate-300 transition-all">
+                    Stop All
+                </button>
+            </div>
+            
+            <div class="pt-4 border-t border-slate-800">
+                <p class="text-[10px] text-slate-600 uppercase text-center font-bold tracking-widest">Acoustic Calibration</p>
+                <input type="range" id="fineTune" min="-100" max="100" value="0" step="1" 
+                       class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 mt-2">
+                <div class="flex justify-between text-[10px] text-slate-700 mt-1 font-mono">
+                    <span>-100ms</span>
+                    <span id="fineTuneVal">0ms</span>
+                    <span>+100ms</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let ts = null;
+        let audioCtx = null;
+        let audioBuffer = null;
+        let source = null;
+        let isReady = false;
+
+        // Initialize Timesync
+        ts = timesync.create({
+            server: '/timesync',
+            interval: 5000
+        });
+
+        ts.on('change', (offset) => {
+            document.getElementById('offsetDisplay').innerText = offset + 'ms';
+        });
+
+        // Use internal stats for latency display
+        setInterval(() => {
+          if (isReady) {
+            document.getElementById('status').innerText = "System Ready";
+          }
+        }, 1000);
+
+        async function initAndPlay() {
+            // Browsers require a user gesture to start AudioContext
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                document.getElementById('mainBtn').innerText = "Requesting Play...";
+            }
+            
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+            
+            // If first time, we send the play request
+            socket.emit('request_play');
+        }
+
+        async function preloadAudio(url) {
+            try {
+                document.getElementById('status').innerText = "Loading Audio...";
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const arrayBuffer = await response.arrayBuffer();
+                audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                isReady = true;
+                document.getElementById('status').innerText = "Audio Loaded";
+            } catch (e) {
+                console.error("Failed to load audio:", e);
+                document.getElementById('status').innerText = "Error: " + e.message;
+                isReady = false;
+            }
+        }
+
+        socket.on('play_event', async (data) => {
+            if (!audioCtx) return; // Wait for user gesture
+
+            if (!audioBuffer) {
+                await preloadAudio(data.songUrl);
+            }
+            
+            if (!audioBuffer) return; // Still failed to load
+
+            if (source) {
+                try { source.stop(); } catch(e) {}
+            }
+
+            source = audioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioCtx.destination);
+
+            // The core sync logic: calculate delay relative to synchronized performance clock
+            const targetTimeMs = data.targetTimeMs;
+            const currentServerTimeMs = ts.now(); // Get synchronized server performance time
+            
+            // Apply local fine-tuning for hardware latency differences
+            const fineTuneMs = parseInt(document.getElementById('fineTune').value);
+            const adjustedTargetMs = targetTimeMs + fineTuneMs;
+            
+            const msUntilPlay = adjustedTargetMs - currentServerTimeMs;
+
+            if (msUntilPlay > 0) {
+                // Scheduled start: convert ms delay to audio context seconds
+                const playTimeInAudioCtx = audioCtx.currentTime + (msUntilPlay / 1000);
+                source.start(playTimeInAudioCtx);
+                console.log(`Scheduling play in ${msUntilPlay.toFixed(2)}ms at ctx: ${playTimeInAudioCtx.toFixed(4)}`);
+            } else {
+                // Late joiner/Network jitter: seek into the buffer (convert ms to seconds)
+                const offsetSec = Math.abs(msUntilPlay) / 1000;
+                if (offsetSec < audioBuffer.duration) {
+                    source.start(0, offsetSec);
+                    console.log(`Playing with offset ${offsetSec.toFixed(4)}s`);
+                }
+            }
+        });
+
+        socket.on('stop_event', () => {
+            if (source) {
+                source.stop();
+                source = null;
+            }
+        });
+
+        document.getElementById('fineTune').oninput = function() {
+            document.getElementById('fineTuneVal').innerText = this.value + 'ms';
+        };
+    </script>
+</body>
+</html>
