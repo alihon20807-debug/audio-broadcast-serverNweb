@@ -1,3 +1,4 @@
+from flask import blueprints
 from flask import send_from_directory
 import time
 import socket
@@ -108,6 +109,26 @@ def handle_time_sync(data):
         "sync_pong",
         {"client_time": data.get("client_time"), "server_time": get_precise_time()},
     )
+
+
+@socketio.on("message")
+def message(data):
+    print(data)
+
+
+@socketio.on("schedule_play")
+def schedule_play(data):
+
+    emit(
+        "remote_play",
+        {
+            "filename": data.get("filename"),
+            "startTime": data.get("startTime"),
+        },
+        broadcast=True,
+    )
+
+    print("REMOTE PLAY", data)
 
 
 @socketio.on("host_command")

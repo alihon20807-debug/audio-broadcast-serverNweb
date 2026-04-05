@@ -22,6 +22,10 @@ function load_songs() {
     });
 }
 
+function getCurrentEpochTime() {
+  return performance.timeOrigin + performance.now();
+}
+
 socket.on("connect", () => {
   console.log("Connected to server");
   document.getElementById("stat-conn-text").innerText = "Connected";
@@ -35,10 +39,24 @@ socket.on("message", (data) => {
   console.log("Message from server:", data);
 });
 
-document.querySelector("#btn-play").addEventListener("click", () => {
-  socket.emit("play_request");
+socket.on("remote_play", (data) => {
+  playAudioFile("/static/music/" + data.filename, data.startTime);
+  console.log("Recieved Remote play:", data);
+});
 
-  playAudioFile(
-    "/static/music/" + document.getElementById("file-select").value,
-  );
+document.querySelector("#btn-play").addEventListener("click", () => {
+  let startTime = getCurrentEpochTime() + 5000;
+  socket.emit("schedule_play", {
+    startTime: startTime,
+    filename: document.getElementById("file-select").value,
+  });
+
+  // THIS IS SO INSANELY RETARDED
+  // Cuz of all recivebraodcast ==> double fire
+  // playAudioFile(
+  //   "/static/music/" + document.getElementById("file-select").value,
+  //   startTime,
+  // );
+
+  console.log("Sent Scheduled play at", startTime);
 });

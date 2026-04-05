@@ -1,6 +1,58 @@
 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 let audioCtx = new AudioContextClass();
+let audioCtxStartTime = performance.now();
 let AudioBuffer;
+let CurrentFileUrl = "";
+
+/**
+ * Converts a future Epoch/Unix timestamp (in milliseconds)
+ * to the equivalent AudioContext.currentTime.
+ */
+function epochToAudioTime(epochTargetMs, audioCtx) {
+  const ts = audioCtx.getOutputTimestamp();
+
+  // performanceTime: The performance.now() value for this sample
+  // contextTime: The audioCtx.currentTime value for this sample
+  const { performanceTime, contextTime } = ts;
+
+  // 1. Calculate how far the target is from the page's time origin
+  const targetPerfTime = epochTargetMs - performance.timeOrigin;
+
+  // 2. Find the delta between now and target in performance-time
+  const deltaMs = targetPerfTime - performanceTime;
+
+  // 3. Add that delta (in seconds) to the audio context time
+  return contextTime + deltaMs / 1000;
+}
+
+function audioTimeToEpoch(audioTime, audioCtx) {
+  const ts = audioCtx.getOutputTimestamp();
+
+  // 1. Calculate the distance (in seconds) between
+  //    the target audioTime and the snapshot contextTime
+  const deltaSeconds = audioTime - ts.contextTime;
+
+  // 2. Convert that delta to milliseconds
+  const deltaMs = deltaSeconds * 1000;
+
+  // 3. Map it to the Performance clock, then to the Wall clock
+  const targetPerfTime = ts.performanceTime + deltaMs;
+  const epochTime = performance.timeOrigin + targetPerfTime;
+
+  return epochTime;
+}
+
+function getCurrentEpochTime() {
+  return performance.timeOrigin + performance.now();
+}
+
+function calcAccuracy() {
+  const audioTime = epochToAudioTime(
+    performance.timeOrigin + performance.now(),
+    audioCtx,
+  );
+  return audioTime - audioCtx.currentTime;
+}
 
 function initAudio(ctx) {
   if (ctx.state === "suspended") {
@@ -31,11 +83,12 @@ function playTestTone(ctx) {
 
   oscillator.start();
   oscillator.stop(ctx.currentTime + 0.5);
+  console.log(ctx.currentTime);
 
   console.log("Test tone played");
 }
 
-function playSound(ctx, audioBuffer) {
+function playSound(ctx, audioBuffer, epochStartTime = 0) {
   if (!ctx || !audioBuffer) return;
 
   if (ctx.state === "suspended") {
@@ -55,7 +108,18 @@ function playSound(ctx, audioBuffer) {
   source.buffer = audioBuffer;
 
   source.connect(ctx.destination);
-  source.start();
+  startTime =
+    epochStartTime == 0
+      ? ctx.currentTime
+      : // : ctx.currentTime + (epochStartTime - getCurrentEpochTime()) / 1000;
+      epochToAudioTime(epochStartTime, ctx);
+
+  console.log("Current time", ctx.currentTime);
+  console.log("Current Epoch Time", getCurrentEpochTime());
+  console.log("Gonna play audio at", startTime);
+  console.log("Scheduled Epoch Start Time", epochStartTime);
+  console.log("Scheduled Audio Epoch Time", audioTimeToEpoch(startTime, ctx));
+  source.start(startTime);
 
   ctx.activeSource = source;
 
@@ -88,9 +152,9 @@ function stopSound(ctx) {
   }
 }
 
-async function playAudioFile(url) {
+async function playAudioFile(url, startTime = 0) {
   const buffer = await loadAudio(audioCtx, url);
-  playSound(audioCtx, buffer);
+  playSound(audioCtx, buffer, startTime);
 }
 
 document.querySelector("#btn-stop").addEventListener("click", () => {
