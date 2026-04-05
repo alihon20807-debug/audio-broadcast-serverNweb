@@ -1,0 +1,62 @@
+[
+  {
+    "rtt": 1.5999999940395355,
+    "serverOffset": 1775407760373.8481,
+    "syncJitter": 0.2550433008043669,
+    "isReady": true,
+    "lastScheduledMs": 4981.908203125,
+    "targetTimeMs": 1775407771078.3018,
+    "playbackStartLocal": 10704.608203142881,
+    "tab_index": 0
+  },
+  {
+    "rtt": 2.199999988079071,
+    "serverOffset": 1775407764652.9443,
+    "syncJitter": 0.13967647671141656,
+    "isReady": true,
+    "lastScheduledMs": 4982.58837890625,
+    "targetTimeMs": 1775407771078.3018,
+    "playbackStartLocal": 6425.388378888369,
+    "tab_index": 1
+  },
+  {
+    "rtt": 1.399999976158142,
+    "serverOffset": 1775407764778.4834,
+    "syncJitter": 0.26244289367395085,
+    "isReady": true,
+    "lastScheduledMs": 4982.846923828125,
+    "targetTimeMs": 1775407771078.3018,
+    "playbackStartLocal": 6299.846923828125,
+    "tab_index": 2
+  },
+  {
+    "rtt": 1.5,
+    "serverOffset": 1775407764915.0203,
+    "syncJitter": 0.26642394244827206,
+    "isReady": true,
+    "lastScheduledMs": 4978.494384765625,
+    "targetTimeMs": 1775407771078.3018,
+    "playbackStartLocal": 6163.394384741783,
+    "tab_index": 3
+  },
+  {
+    "rtt": 1.300000011920929,
+    "serverOffset": 1775407765041.028,
+    "syncJitter": 0.297039337850763,
+    "isReady": true,
+    "lastScheduledMs": 4980.2744140625,
+    "targetTimeMs": 1775407771078.3018,
+    "playbackStartLocal": 6037.2744140625,
+    "tab_index": 4
+  },
+  {
+    "rtt": 1.5999999940395355,
+    "serverOffset": 1775407765165.3242,
+    "syncJitter": 0.10114295575612013,
+    "isReady": true,
+    "lastScheduledMs": 4976.483642578125,
+    "targetTimeMs": 1775407771078.3018,
+    "playbackStartLocal": 5912.983642578125,
+    "tab_index": 5
+  }
+]
