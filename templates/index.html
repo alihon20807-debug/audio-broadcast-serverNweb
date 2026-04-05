@@ -43,14 +43,27 @@
                 </button>
             </div>
             
-            <div class="pt-4 border-t border-slate-800">
-                <p class="text-[10px] text-slate-600 uppercase text-center font-bold tracking-widest">Acoustic Calibration</p>
-                <input type="range" id="fineTune" min="-100" max="100" value="0" step="1" 
-                       class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 mt-2">
-                <div class="flex justify-between text-[10px] text-slate-700 mt-1 font-mono">
-                    <span>-100ms</span>
-                    <span id="fineTuneVal">0ms</span>
-                    <span>+100ms</span>
+            <div class="pt-4 border-t border-slate-800 space-y-4">
+                <div>
+                    <p class="text-[10px] text-slate-600 uppercase text-center font-bold tracking-widest">Start-up Buffer Delay</p>
+                    <input type="range" id="playDelay" min="500" max="8000" value="5000" step="100" 
+                           class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 mt-2">
+                    <div class="flex justify-between text-[10px] text-slate-700 mt-1 font-mono">
+                        <span>500ms</span>
+                        <span id="playDelayVal">5000ms</span>
+                        <span>8000ms</span>
+                    </div>
+                </div>
+                
+                <div>
+                    <p class="text-[10px] text-slate-600 uppercase text-center font-bold tracking-widest">Acoustic Auto-Calibration</p>
+                    <input type="range" id="fineTune" min="-100" max="100" value="0" step="1" 
+                           class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 mt-2">
+                    <div class="flex justify-between text-[10px] text-slate-700 mt-1 font-mono">
+                        <span>-100ms</span>
+                        <span id="fineTuneVal">0ms</span>
+                        <span>+100ms</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -82,6 +95,9 @@
         }, 1000);
 
         async function initAndPlay() {
+            // Get selected play delay
+            const delay = parseInt(document.getElementById('playDelay').value);
+            
             // Browsers require a user gesture to start AudioContext
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -90,8 +106,8 @@
             
             if (audioCtx.state === 'suspended') await audioCtx.resume();
             
-            // If first time, we send the play request
-            socket.emit('request_play');
+            // If first time, we send the play request with custom delay
+            socket.emit('request_play', { delay_ms: delay });
         }
 
         async function preloadAudio(url) {
@@ -161,6 +177,10 @@
 
         document.getElementById('fineTune').oninput = function() {
             document.getElementById('fineTuneVal').innerText = this.value + 'ms';
+        };
+
+        document.getElementById('playDelay').oninput = function() {
+            document.getElementById('playDelayVal').innerText = this.value + 'ms';
         };
     </script>
 </body>

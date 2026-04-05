@@ -49,9 +49,14 @@ def timesync():
 
 
 @socketio.on("request_play")
-def handle_play():
-    # Schedule start 2 seconds (2000ms) into the future
-    future_start = get_now_ms() + 2000
+def handle_play(data=None):
+    # Default to 2000ms if not specified
+    delay_ms = 2000
+    if data and isinstance(data, dict):
+        delay_ms = data.get("delay_ms", 2000)
+    
+    # Schedule start into the future
+    future_start = get_now_ms() + delay_ms
     state["isPlaying"] = True
     state["startTime"] = future_start
 
