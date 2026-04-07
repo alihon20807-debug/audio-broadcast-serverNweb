@@ -10,9 +10,13 @@ window.__sync_telemetry = {
     serverOffset: 0,
     syncJitter: 0,
     isReady: false,
+    isStable: false, // NEW: Jitter < 20ms
     lastScheduledMs: 0,
     targetTimeMs: 0,
-    playbackStartLocal: 0
+    playbackStartLocal: 0,
+    rttHistory: [],
+    lastRawOffset: 0,
+    transport: 'unknown'
 };
 
 let audioCtx = null;
@@ -27,9 +31,11 @@ let isReady = false;
 // We use median filtering (not mean) to reject outlier RTT samples for better sync quality.
 let serverOffset = 0;
 let rtt = 0;
+let minRtt = Infinity; // NEW: The absolute best (fastest) sample we've seen
+let offsetAtMinRtt = 0; // NEW: The offset measured during the fastest window
 let syncJitter = 0;
 let offsetSamples = [];
-const MAX_SAMPLES = 10;
+const MAX_SAMPLES = 20; // Increased for better WAN statistics
 
 // ── Internal Recorder (Automation Component) ──────────────────────
 // Bug #25: Web-native loopback recording for automated testing
@@ -51,12 +57,14 @@ function updateStatusUI() {
     if (!socket.connected) {
         dot.className = 'w-2 h-2 rounded-full bg-red-500 animate-pulse';
         statusEl.innerText = 'Disconnected';
-    } else if (isReady) {
+    } else if (isReady && window.__sync_telemetry.isStable) {
         dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
-        // Don't override status during playback
-        if (statusEl.innerText === 'Disconnected' || statusEl.innerText === 'Hardware Offline') {
+        if (statusEl.innerText === 'Disconnected' || statusEl.innerText === 'Hardware Offline' || statusEl.innerText === 'Stabilizing…') {
             statusEl.innerText = 'System Ready';
         }
+    } else if (socket.connected && !window.__sync_telemetry.isStable) {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+        statusEl.innerText = 'Stabilizing…';
     } else {
         dot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
         if (statusEl.innerText === 'Disconnected') {
@@ -98,28 +106,47 @@ socket.on('sync_pong', (data) => {
     rtt = currentRtt;
 
     // Server time is at the midpoint of RTT (one-way estimate)
-    // offset = estimated_server_now - local_now
     const latestOffset = (data.server_ts + (currentRtt / 2)) - now;
 
-    offsetSamples.push(latestOffset);
-    if (offsetSamples.length > MAX_SAMPLES) offsetSamples.shift();
+    // PRECISION UPGRADE: Track the 'Best Sample' (Minimum RTT)
+    // The fastest packet has the minimum asymmetric error.
+    if (currentRtt < minRtt) {
+        minRtt = currentRtt;
+        offsetAtMinRtt = latestOffset;
+        console.log(`[SYNC] New Best-Sample Anchor: RTT=${minRtt.toFixed(2)}ms`);
+    }
 
-    // Bug #7: Use median instead of mean to reject outlier RTT samples
-    // Median is far more robust against network jitter spikes
-    serverOffset = medianOf(offsetSamples);
+    // Outlier Rejection: Ignore samples that are > 2x the current minimum RTT
+    // if the network has proven it can do better. This kills the 4.5s ngrok spikes.
+    if (minRtt < 100 && currentRtt > minRtt * 3) {
+        console.warn(`[SYNC] Rejecting Jittery Spike: RTT=${currentRtt.toFixed(2)}ms`);
+    } else {
+        offsetSamples.push(latestOffset);
+        if (offsetSamples.length > MAX_SAMPLES) offsetSamples.shift();
+    }
 
-    // Compute jitter: standard deviation of offset samples around the median
+    // Anchor the Median around the Best Sample if we have enough data
+    const movingMedian = medianOf(offsetSamples);
+    
+    // If we have a very clean anchor (low RTT), we weigh it heavily
+    serverOffset = (offsetSamples.length >= 5) ? (movingMedian * 0.7 + offsetAtMinRtt * 0.3) : movingMedian;
+
+    // Compute jitter: standard deviation of offset samples
     if (offsetSamples.length > 1) {
         const mean = offsetSamples.reduce((a, b) => a + b, 0) / offsetSamples.length;
         const variance = offsetSamples.reduce((sum, v) => sum + (v - mean) ** 2, 0) / offsetSamples.length;
         syncJitter = Math.sqrt(variance);
     }
 
-    // Update telemetry for automation
+    // Update telemetry for automation with stability check
     window.__sync_telemetry.rtt = rtt;
     window.__sync_telemetry.serverOffset = serverOffset;
     window.__sync_telemetry.syncJitter = syncJitter;
+    window.__sync_telemetry.isStable = (syncJitter < 20 && offsetSamples.length >= 5);
     window.__sync_telemetry.isReady = isReady;
+    window.__sync_telemetry.rttHistory.push(rtt);
+    window.__sync_telemetry.lastRawOffset = latestOffset;
+    window.__sync_telemetry.transport = socket.io.engine.transport.name;
 });
 
 function medianOf(arr) {

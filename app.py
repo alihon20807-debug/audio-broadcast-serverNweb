@@ -34,6 +34,13 @@ def index():
     return render_template("index.html")
 
 
+@app.after_request
+def add_security_headers(response):
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
+    return response
+
+
 # Bug #3: Removed redundant /static/music/ route — Flask serves /static/ automatically.
 
 

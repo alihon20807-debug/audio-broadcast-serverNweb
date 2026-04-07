@@ -49,42 +49,69 @@ async def run_sync_test(num_tabs, output_filename):
 
     async with async_playwright() as p:
         # Launch with bypass for insecure origins (needed for LAN IP AudioContext)
+        # ENABLE HEADED MODE to simulate real UI rendering and throttling
         browser = await p.chromium.launch(
-            headless=True,
+            headless=False,
             args=[
-                f"--unsafely-treat-insecure-origin-as-secure=http://172.17.57.89:5000"
+                "--unsafely-treat-insecure-origin-as-secure=http://172.17.57.89:5000"
             ]
         )
-        # 0. Initialize context with bypass for ngrok interstitial
-        context = await browser.new_context(
-            extra_http_headers={
-                "ngrok-skip-browser-warning": "true"
-            }
-        )
+        # 0. Initialize context WITHOUT ngrok bypass to hit the proxy intermediate page
+        context = await browser.new_context()
         # Initialize pages in parallel
         pages = await asyncio.gather(*(context.new_page() for _ in range(num_tabs)))
         
-        # Assign URLs: Reference uses localhost, Production uses the hybrid list
+        # Assignment URLs: Reference uses localhost, Production uses the hybrid list
         target_urls = ["http://127.0.0.1:5000"] * num_tabs if num_tabs == 1 else TEST_URLS
         
         print(f"[TEST] Navigating {num_tabs} tabs to target origins...")
-        await asyncio.gather(*(pages[i].goto(target_urls[i]) for i in range(num_tabs)))
+        await asyncio.gather(*(pages[i].goto(target_urls[i], wait_until="networkidle") for i in range(num_tabs)))
+        
+        # 0.4. Take diagnostic screenshots of ngrok tabs to check for security interstitials
+        if num_tabs > 1:
+            print("[TEST] Capturing diagnostic screenshots of ngrok tabs...")
+            await pages[4].screenshot(path="debug_ngrok_tab.png")
+        
+        # 0.5. Handle ngrok interstitial manually for WAN tabs
+        async def handle_interstitial(page, idx):
+            if "ngrok" in target_urls[idx]:
+                try:
+                    # Detect and click the "Visit Site" button if it appears
+                    btn = page.locator("button:has-text('Visit Site')")
+                    if await btn.count() > 0:
+                        print(f"[TEST] Tab {idx+1} (ngrok) detected interstitial. Bypassing manually...")
+                        await btn.click()
+                except Exception:
+                    pass
+        
+        await asyncio.gather(*(handle_interstitial(page, i) for i, page in enumerate(pages)))
             
         # 1. Wait for Clock Sync in parallel (Robust for WAN latency)
+        # We now wait for isStable=true (Jitter < 20ms) but timeout after 30s for 'Best Effort' match.
         async def wait_for_sync(page, idx):
+            start_wait = time.time()
             while True:
                 try:
                     # Check if telemetry object even exists yet
                     is_ready = await page.evaluate("typeof window.__sync_telemetry !== 'undefined'")
                     if is_ready:
-                        offset = await page.evaluate("window.__sync_telemetry.serverOffset")
-                        if offset != 0:
+                        is_stable = await page.evaluate("window.__sync_telemetry.isStable")
+                        jitter = await page.evaluate("window.__sync_telemetry.syncJitter")
+                        
+                        # Exit if stable OR if we've waited > 30s (Best Effort)
+                        if is_stable:
+                            print(f"[TEST] Tab {idx+1} Clock Synced and Stable.")
                             break
+                        if time.time() - start_wait > 30:
+                            print(f"[TEST] Tab {idx+1} Stability Timeout (Jitter: {jitter:.1f}ms). Proceeding with Best-Sample anchor.")
+                            break
+                        
+                        if jitter > 0:
+                            print(f"[TEST] Tab {idx+1} Stabilizing (Jitter: {jitter:.1f}ms)...")
                 except Exception:
                     # Silence common "page not loaded" errors during initial boot
                     pass
                 await asyncio.sleep(1.0) # 1s poll is safer for WAN
-            print(f"[TEST] Tab {idx+1} Clock Synced.")
 
         await asyncio.gather(*(wait_for_sync(page, i) for i, page in enumerate(pages)))
 
@@ -111,6 +138,27 @@ async def run_sync_test(num_tabs, output_filename):
             await asyncio.sleep(1)
             max_wait -= 1
             
+        # 6.5. Capture advanced telemetry for investigation
+        if num_tabs > 1:
+            all_telemetry = []
+            for i, page in enumerate(pages):
+                telemetry = await page.evaluate("window.__sync_telemetry")
+                telemetry['tab_idx'] = i + 1
+                telemetry['url'] = target_urls[i]
+                all_telemetry.append(telemetry)
+            
+            import json
+            with open("sync_telemetry.json", "w") as f:
+                json.dump(all_telemetry, f, indent=2)
+            print("[TEST] Advanced telemetry saved to sync_telemetry.json")
+            
+            # Print a quick RTT summary per origin type
+            for t in all_telemetry:
+                rtts = t.get('rttHistory', [])
+                avg_rtt = sum(rtts)/len(rtts) if rtts else 0
+                max_rtt = max(rtts) if rtts else 0
+                print(f"[DIAG] Tab {t['tab_idx']} ({t['url']}): Avg RTT={avg_rtt:.1f}ms, Max RTT={max_rtt:.1f}ms, Transport={t.get('transport')}")
+
         await browser.close()
 
     # 7. Mix the raw files
