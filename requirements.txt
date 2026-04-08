@@ -1,0 +1,9 @@
+# Core application
+flask>=3.0
+flask-socketio>=5.3
+
+
+quart>=0.19
+uvicorn>=0.23
+# eventlet>=0.35 (Removed in favor of asyncio)
+
